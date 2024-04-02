@@ -1,0 +1,94 @@
+{% extends "base.html" %} {% block content %} {% if username=="" %}
+<div class="login_notice">
+  <small>***Please login to book availabe session***</small>
+</div>
+{% endif %}
+<form action="/classes" class="class-filter-section-container">
+  <div class="class-filter-section">
+    <div class="date-filter">
+      <label for="dateStart">Choose Date :</label>
+      <input
+        type="date"
+        name="dateChosen"
+        class="form-control"
+        id="dateChosen"
+        value="{{dateChosen}}"
+      />
+    </div>
+    <button type="submit" class="btn btn-primary-theme">Filter</button>
+  </div>
+</form>
+
+<div class="classes-booking-table classes-booking-table-need-hover">
+  <table class="table text-center table-light">
+    <thead>
+      <tr>
+        {%for date in dbresultDate%}
+        <th scope="col" class="border p-2 bg-dark text-white">{{date}}</th>
+        {%endfor%}
+      </tr>
+      <tr>
+        {%for col in dbcols%}
+        <th scope="col" class="border sticky-header">{{col}}</th>
+        {%endfor%}
+      </tr>
+    </thead>
+    <tbody>
+      {%for result in dbresult%}
+      <tr>
+        {%for value in result%} {%if value is not iterable and value is not
+        none%}
+        <th scope="row" class="border noneStyleButton">{{value}}</th>
+        {% else %} {%if value is not none %}
+        <td
+          class="border hover {% if value[-2]|int <= 0 or value[0] in ExpireClassID %}no-hover-effect{% endif %} "
+          style="background-color:
+                {%if value[0] in ExpireClassID %} #696969 
+                {%else%}
+                  {%if value[1]=='Pump'%} #D10000 
+                  {%elif value[1]=='Step'%}#FFA600
+                  {%elif value[1]=='Balance'%}#008000
+                  {%elif value[1]=='HIIT'%}#00E0E0
+                  {%elif value[1]=='Stretch'%}#4F4FFF
+                  {%elif value[1]=='BodyJam'%}#B959FF
+                  {%elif value[1]=='BodyAttack'%}#0b7285
+                  {%elif value[1]=='Core'%}#C700C7
+                  {%elif value[1]=='Step'%}#4545FF
+                  {%else%}#000000
+                  {%endif%}
+                {%endif%}
+              ;color:white "
+        >
+          <form action="/classes/addClasses/process" method="POST">
+            <button
+              type="submit"
+              name="ClassID"
+              class="noneStyleButton {% if value[0] in ExpireClassID or  value[-2]|int <= 0 %} disabled {% endif %}"
+              value="{{value[0]}}"
+            >
+              <input type="hidden" name="WaitForProcess" value="1" />
+              <input type="hidden" name="BookedClassDetails" value="0" />
+              <input type="hidden" name="ptsessionbook" value="no" />
+              <h6>{{value[1]}}</h6>
+              <small>{{value[2]}}</small>
+              <div>
+                {%if value[0] in ExpireClassID %} <small >🕕 Class ended</small>
+                {%else%}
+                  <small {%if value[-2]|int >0 %} class="text-white" >{%if value[0] in BookedClassID%}👁️ Already booked{%else%}✅ {{value[-2]}} Available /{{value[-1]}}</small>{%endif%}
+                  {%else%}<small class="text-danger">✋ Fully booked</small>
+                  {%endif%} 
+                {%endif%}
+              </div>
+            </button>
+          </form>
+        </td>
+        {%else%}
+        <th class="border"></th>
+        {%endif%} {%endif%} {%endfor%}
+      </tr>
+      {%endfor%}
+    </tbody>
+  </table>
+</div>
+
+{% endblock %}
