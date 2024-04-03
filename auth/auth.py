@@ -23,7 +23,7 @@ def login_post():
     isValidAccount = Member().checkMemberPassword(email,password)
     if isValidAccount:
         member = Member(email)
-        member.fetchMemberDetails()
+        member.getMemberDetails()
         if member.member_status=="Archived":
             flash("You are an archived user, please contact gym staff for more information!")
             return render_template("base.html")
