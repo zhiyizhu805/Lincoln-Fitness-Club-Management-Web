@@ -28,18 +28,16 @@ class DatabaseManager:
                 if commit:
                     connection.commit()
                     print("Transaction committed.")
-                    return 
+                result = cursor.fetchall()
+                if cursor.description: 
+                    dbcols = [desc[0] for desc in cursor.description]
                 else:
-                    result = cursor.fetchall()
-                    if cursor.description: 
-                        dbcols = [desc[0] for desc in cursor.description]
-                    else:
-                        dbcols = ""
+                    dbcols = ""
                 cursor.close()
         except Error as e:
             if connection:
                 connection.rollback()
-                print("Transaction rolled back.")
+                print("Something wrong! Transaction rolled back.")
             print(f"Error: {e}")
         finally:
             if connection and connection.is_connected():

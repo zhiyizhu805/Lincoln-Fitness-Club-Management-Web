@@ -1,6 +1,7 @@
 from flask import (Blueprint,flash, redirect, render_template,
                    request, session, url_for)
 from database import db_manager
+from auth.model import Member
 
 
 auth = Blueprint("auth",__name__,template_folder="templates",static_folder="static",static_url_path='/auth/static', url_prefix='')
@@ -9,18 +10,7 @@ auth = Blueprint("auth",__name__,template_folder="templates",static_folder="stat
 @auth.route("/")
 def home():
     if "username" in session:
-        userID = session["userID"]
-        query = "SELECT * FROM role WHERE role='member'"
-        memberIDList = []
-        memberIDs = db_manager.execute_query(query,)['result']
-        for memberID in memberIDs:
-            memberIDList.append(memberID[0])
-        if userID in memberIDList:
-            username = session["username"]
-            return render_template("base.html", username=username)
-        else:
-            session.pop("username", None)
-            return redirect(url_for("auth.home"))
+        return render_template("base.html", username=session["username"])
     else:
         return render_template("base.html")
 
@@ -30,18 +20,16 @@ def login_post():
     email = request.form.get("email")
     password = request.form.get("password")
     error = ""
-    # cur=getCursor()
-    sql = """SELECT * FROM Member WHERE Email = %s AND MemberPassword = %s """
-    # cur.execute(sql, (email,password))
-    member = db_manager.execute_query(sql, (email,password))['result']
-    if len(member) == 1:
-        if member[0][17]=="Archived":
+    isValidAccount = Member().checkMemberPassword(email,password)
+    if isValidAccount:
+        member = Member(email)
+        member.fetchMemberDetails()
+        if member.member_status=="Archived":
             flash("You are an archived user, please contact gym staff for more information!")
             return render_template("base.html")
         else:
-            memberID = member[0][0]
-            session["userID"] = memberID
-            session["username"] = email
+            session["userID"] = member.member_id
+            session["username"] = member.email
             return redirect(url_for("auth.home"))
     else:
         flash("Invalid user name or password!","error")
@@ -52,6 +40,7 @@ def login_post():
 @auth.route("/logout")
 def logout():
     session.pop("username", None)
+    session.pop("userID", None)
     return redirect(url_for("auth.home"))
 
 # public interface password reset function
@@ -59,12 +48,12 @@ def logout():
 def password_reset():
     password = request.form.get("password")
     confirmPassword = request.form.get("confirmPassword")
-    email = session["username"]
+    # email = session["username"]
+    member = Member(session["username"])
     error = ""
     # new password has to be at leat 8 characters
     if len(password)>7 and (password==confirmPassword):
-        sql = """UPDATE Member SET MemberPassword = %s WHERE Email = %s """
-        db_manager.execute_query(sql, (password, email),commit=True)
+        member.resetPassword(confirmPassword)
         flash("Password reset succeed!Please login with new password!","success")
         session.pop("username", None)
         return redirect(url_for("auth.home"))

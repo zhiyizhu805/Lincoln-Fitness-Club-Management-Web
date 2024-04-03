@@ -2,7 +2,7 @@ from flask import (Flask)
 from auth.auth import auth
 from admin.admin import admin
 from sessions.sessions import sessions
-from customer.customer import customer
+from member.customer import customer
 from traniner.traniner import traniner
 
 app = Flask(__name__)
