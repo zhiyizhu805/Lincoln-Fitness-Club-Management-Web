@@ -5,13 +5,13 @@ from datetime import  date,datetime
 from dateutil.relativedelta import relativedelta
 import pytz 
 
-customer = Blueprint("customer",__name__,template_folder="templates",static_folder="static",static_url_path='/customer/static', url_prefix='')
+member = Blueprint("member",__name__,template_folder="templates",static_folder="static",static_url_path='/member/static', url_prefix='')
 
 # Current NZ time
 now_nz = datetime.now(pytz.timezone('Pacific/Auckland'))
 formatted_now_nz = now_nz.strftime("%Y-%m-%d %H:%M:%S")
 
-@customer.route("/membership/mySubscription")
+@member.route("/membership/mySubscription")
 def mySubscription():
     if "username" in session:
         username = session["username"]
@@ -59,7 +59,7 @@ def mySubscription():
 
 
 
-@customer.route("/membership/CancelSubscription",methods=['POST'])
+@member.route("/membership/CancelSubscription",methods=['POST'])
 def CancelSubscription():
     if "username" in session:
         username = session["username"]
@@ -96,7 +96,7 @@ def CancelSubscription():
     
     
     
-@customer.route("/membership")
+@member.route("/membership")
 def membership():
     if "username" in session:
         username = session["username"]
@@ -104,7 +104,7 @@ def membership():
     else:
         return render_template("membership.html")
 #My profile section
-@customer.route("/myProfile")
+@member.route("/myProfile")
 def myProfile():
     if "username" in session:
         username = session["username"]
@@ -113,7 +113,7 @@ def myProfile():
     else:
         return redirect(url_for("auth.home"))
 
-@customer.route("/myProfile/edit")
+@member.route("/myProfile/edit")
 def myProfileEditGet():
     if "username" in session:
         username = session["username"]
@@ -123,7 +123,7 @@ def myProfileEditGet():
         return redirect(url_for("auth.home"))
 
 #My profile edit section
-@customer.route("/myProfileEditPOST",methods=["POST"])
+@member.route("/myProfileEditPOST",methods=["POST"])
 def myProfileEdit():
     if "username" in session:
         username = session["username"]
@@ -151,14 +151,14 @@ def myProfileEdit():
         #render the the same member page with same memberID
         result = db_manager.execute_query("select * from Member where MemberID=%s",(memberID,))['result'][0]
         flash("Details have been successfully updated")
-        return redirect(url_for("customer.myProfile"))
+        return redirect(url_for("member.myProfile"))
     else:
         return redirect(url_for("auth.home"))
 
 
 
 #My Booking section
-@customer.route("/myBooking")
+@member.route("/myBooking")
 def myBooking():
     if "username" in session:
         username = session["username"]
@@ -259,7 +259,7 @@ def myBooking():
     else:
         return redirect(url_for("auth.home"))
 
-@customer.route("/myMessage")
+@member.route("/myMessage")
 def myMessage():
     if "username" in session:
         username = session["username"]

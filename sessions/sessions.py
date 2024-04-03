@@ -456,7 +456,7 @@ def bookSession():
         #Notice add
 
         flash('PT session has been added to your list!',"successBooked")
-        return redirect(url_for("customer.myBooking"))
+        return redirect(url_for("member.myBooking"))
     else:
         flash("payment is fail,try again")
         return redirect(url_for("ptsession"))
