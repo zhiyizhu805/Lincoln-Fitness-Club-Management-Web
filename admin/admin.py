@@ -25,13 +25,13 @@ def MemberList():
         username = session["username"]
         showMemberType=request.args.get("showMemberType","")
         showMemberType=f"{showMemberType}%"
-        db = db_manager.execute_query("""Select MemberID,CONCAT(Firstname," ",Lastname) as 'Name',DateOfBirth,GymJoinDate,MemberStatus from Member
+        result = db_manager.execute_query("""Select MemberID,CONCAT(Firstname," ",Lastname) as 'Name',DateOfBirth,GymJoinDate,MemberStatus from Member
                         where  MemberStatus LIKE %s
                         order by CONCAT(Firstname," ",Lastname)""",(showMemberType,))
         message_nodata="Sorry!No member information under this category!"
         return render_template("manageMember.html",
-                            dbcols=db['dbcols'],
-                            dbresult=db['result']
+                            dbcols=result['dbcols'],
+                            dbresult=result['result']
                                 ,username=username,
                                 showMemberType=showMemberType,
                                 message_nodata=message_nodata
@@ -54,11 +54,11 @@ def trainerwork():
                 ) t ) t2
                 group by t2.TrainerID, t2.TrainerName order by t2.TrainerID asc;"""
         username = session["username"]
-        db = db_manager.execute_query(sql_trainerwork)
+        result = db_manager.execute_query(sql_trainerwork)
         return render_template("managerTrainerWork.html",
                                 username=username,
-                                dbcols=db['dbcols'],
-                                dbresult = db['result']
+                                dbcols=result['dbcols'],
+                                dbresult = result['result']
                                 )
     else:
         return redirect(url_for("auth.adminLogin_get"))
@@ -480,10 +480,9 @@ def editMemberProcess():
             sql="""INSERT INTO Member (FirstName, LastName, Email, PhysicalAddress, Phone, DateOfBirth, EmergencyContactName, EmergencyContactNumber,
                         MedicalConditions, GymJoinDate, ReceivingNotifications, MemberPassword, AuthorityOnCollectingFees, BankName, BankAccountHolderName, BankAccountNumber, MemberStatus,MemberNotes)
                         VALUES(%s, %s, %s, %s, %s, %s, %s, %s,%s, %s, %s,%s, %s,%s, %s, %s, %s,%s)"""
-            db_manager.execute_query(sql,(firstname,lastname,email,PhysicalAddress,phone,DOB,EmergencyName,EmergencyNumber,Mconditions,GJD,ReceivingNotifications,psw,autoFee,BankName,BankAccountHolderName,BankAccountNumber,MemberStatus,MemberNotes))
+            db_manager.execute_query(sql,(firstname,lastname,email,PhysicalAddress,phone,DOB,EmergencyName,EmergencyNumber,Mconditions,GJD,ReceivingNotifications,psw,autoFee,BankName,BankAccountHolderName,BankAccountNumber,MemberStatus,MemberNotes),commit=True)
             #render the added new-member detail page
-            result = db_manager.execute_query("select * from Member where email=%s",(email,))
-            dbresult=result['result']
+            dbresult = db_manager.execute_query("select * from Member where email=%s",(email,))['result']
             #assign memberID variable for later use
             memberID=dbresult[0][0]
             flash("New member has been added successfully!", "successadd")
@@ -496,7 +495,7 @@ def editMemberProcess():
                     MemberPassword=%s, AuthorityOnCollectingFees=%s, BankName=%s, BankAccountHolderName=%s, BankAccountNumber=%s, MemberStatus=%s,MemberNotes=%s
                     where MemberID=%s"""
             db_manager.execute_query(sql,(firstname,lastname,email,PhysicalAddress,phone,DOB,EmergencyName,EmergencyNumber,Mconditions,GJD,ReceivingNotifications,psw,autoFee,BankName,
-                             BankAccountHolderName,BankAccountNumber,MemberStatus,MemberNotes,memberID))
+                             BankAccountHolderName,BankAccountNumber,MemberStatus,MemberNotes,memberID),commit=True)
             flash("Details have been updated successfully!", "success")
 
             return redirect(f"/admin/member/editmember?memberID={memberID}")
@@ -510,8 +509,7 @@ def editMember():
         username = session["username"]
         memberID=request.args.get("memberID")
         removeReadonly=request.args.get("removeReadonly","")
-        result1 = db_manager.execute_query("select * from Member where MemberID=%s",(memberID,))
-        dbresult=result1['result']
+        dbresult = db_manager.execute_query("select * from Member where MemberID=%s",(memberID,))['result']
         #assign the originial values to variables
         firstname=dbresult[0][1]
         lastname=dbresult[0][2]
@@ -581,8 +579,7 @@ def editTrainer():
         removeReadonly=request.args.get("removeReadonly","")
         username = session["username"]
         trainerID=request.args.get("trainerID")
-        result1 = db_manager.execute_query("select * from Trainer where TrainerID=%s",(trainerID,))
-        dbresult=result1['result']
+        dbresult = db_manager.execute_query("select * from Trainer where TrainerID=%s",(trainerID,))['result']
         firstname=dbresult[0][1]
         lastname=dbresult[0][2]
         email=dbresult[0][3]
@@ -637,7 +634,7 @@ def editTrainerProcess():
         if trainerID=="None":
             sql="""INSERT INTO Trainer( FirstName, LastName, Email, Phone, DateOfBirth, DateOfEmployment, TrainerPassword, EmergencyContactName, EmergencyContactNumber, MedicalConditions, TrainerStatus)
                     values(%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)"""
-            db_manager.execute_query(sql,(firstname,lastname,email,phone,DOB,DOE,psw,EmergencyName,EmergencyNumber,Mconditions,trainerStatus))
+            db_manager.execute_query(sql,(firstname,lastname,email,phone,DOB,DOE,psw,EmergencyName,EmergencyNumber,Mconditions,trainerStatus),commit=True)
             #render the added new-trainer detail page
             result1 = db_manager.execute_query("select * from Trainer where email=%s",(email,))
             # dbcols=[desc[0] for desc in result1.description]
@@ -651,9 +648,9 @@ def editTrainerProcess():
             sql="""update Trainer set FirstName=%s, LastName=%s, Email=%s, Phone=%s, DateOfBirth=%s,
             DateOfEmployment=%s, TrainerPassword=%s, EmergencyContactName=%s, EmergencyContactNumber=%s, MedicalConditions=%s, TrainerStatus=%s
             where TrainerID=%s"""
-            result2 = db_manager.execute_query(sql,(firstname,lastname,email,phone,DOB,DOE,psw,EmergencyName,EmergencyNumber,Mconditions,trainerStatus,trainerID))
+            result2 = db_manager.execute_query(sql,(firstname,lastname,email,phone,DOB,DOE,psw,EmergencyName,EmergencyNumber,Mconditions,trainerStatus,trainerID),commit=True)
             #render the the same trainer page with same trainerID
-            result2.execute("select * from Trainer where TrainerID=%s",(trainerID,))
+            db_manager.execute_query("select * from Trainer where TrainerID=%s",(trainerID,))
             flash("Details have been updated successfully!", "success")
             return redirect(f"/admin/trainer/edittrainer?trainerID={trainerID}")
     else:
@@ -701,6 +698,6 @@ def weeklyUpdatePOST():
     content = request.form.get("content")
     sql = """INSERT INTO weeklyupdate (topic,content)
     VALUES (%s,%s) """
-    db_manager.execute_query(sql, (topic,content))
+    db_manager.execute_query(sql, (topic,content),commit=True)
     flash(" You have sent a weekly update to members successfully!")
     return redirect(url_for("weeklyUpdate"))

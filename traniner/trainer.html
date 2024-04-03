@@ -52,10 +52,10 @@
         <div class="collapse navbar-collapse" id="navbarResponsive">
           <ul class="navbar-nav ml-auto">
             <li class="nav-item">
-              <a class="nav-link" href="{{ url_for('trainer') }}">My Profile</a>
+              <a class="nav-link" href="{{ url_for('trainer.trainer') }}">My Profile</a>
             </li>
             <li class="nav-item">
-              <a class="nav-link" href="{{ url_for('myTrainee') }}"
+              <a class="nav-link" href="{{ url_for('trainer.myTrainee') }}"
                 >My Trainees</a
               >
             </li>
@@ -82,7 +82,7 @@
                     >
                   </li>
                   <li>
-                    <a class="dropdown-item" href="{{ url_for('logout') }}"
+                    <a class="dropdown-item" href="{{ url_for('auth.logout') }}"
                       >Logout</a
                     >
                   </li>

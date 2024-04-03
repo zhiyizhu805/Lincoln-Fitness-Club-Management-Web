@@ -97,7 +97,7 @@
                     <div><small>{{ value[3] }}</small></div>
                     <div><small>{{ value[4] }}-{{ value[5] }}</small></div>
                     <small></small>
-                    <form action="/cancelClass" method="POST">
+                    <form action="{{url_for("sessions.cancelClass")}}" method="POST">
                       {%if value[0] not in ExpireClassID %}
                       <button
                         type="submit"

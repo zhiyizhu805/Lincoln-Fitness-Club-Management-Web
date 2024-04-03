@@ -57,13 +57,13 @@
               <a class="nav-link" href="{{ url_for('auth.home') }}">Home</a>
             </li>
             <li class="nav-item">
-              <a class="nav-link" href="{{ url_for('classes') }}">Classes</a>
+              <a class="nav-link" href="{{ url_for('sessions.classes') }}">Classes</a>
             </li>
             <li class="nav-item">
               <a class="nav-link" href="/ptsession">PT Sessions</a>
             </li>
             <li class="nav-item">
-              <a class="nav-link" href="{{ url_for('membership') }}"
+              <a class="nav-link" href="{{ url_for('customer.membership') }}"
                 >Membership</a
               >
             </li>
@@ -76,17 +76,17 @@
                 >
               </li>
               <li class="nav-item hide-menu">
-                <a class="nav-link" href="{{ url_for('myProfile') }}"
+                <a class="nav-link" href="{{ url_for('customer.myProfile') }}"
                   >My Profile</a
                 >
               </li>
               <li class="nav-item hide-menu">
-                <a class="nav-link" href="{{ url_for('myBooking') }}"
+                <a class="nav-link" href="{{ url_for('customer.myBooking') }}"
                   >My Bookings</a
                 >
               </li>
               <li class="nav-item hide-menu">
-                <a class="nav-link" href="{{ url_for('myMessage') }}"
+                <a class="nav-link" href="{{ url_for('customer.myMessage') }}"
                   >My Messages</a
                 >
               </li>
@@ -102,7 +102,7 @@
                   >
               </li>
               <li class="nav-item hide-menu">
-                <a class="nav-link" href="{{ url_for('logout') }}">Logout</a>
+                <a class="nav-link" href="{{ url_for('auth.logout') }}">Logout</a>
               </li>
             {% else %}
               <hr />
@@ -138,17 +138,17 @@
                       >
                     </li>
                     <li>
-                      <a class="dropdown-item" href="{{ url_for('myProfile') }}"
+                      <a class="dropdown-item" href="{{ url_for('customer.myProfile') }}"
                         >My Profile</a
                       >
                     </li>
                     <li>
-                      <a class="dropdown-item" href="{{ url_for('myBooking') }}"
+                      <a class="dropdown-item" href="{{ url_for('customer.myBooking') }}"
                         >My Bookings</a
                       >
                     </li>
                     <li>
-                      <a class="dropdown-item" href="{{ url_for('myMessage') }}"
+                      <a class="dropdown-item" href="{{ url_for('customer.myMessage') }}"
                         >My Messages</a
                       >
                     </li>
@@ -163,7 +163,7 @@
                       >
                     </li>
                     <li>
-                      <a class="dropdown-item" href="{{ url_for('logout') }}"
+                      <a class="dropdown-item" href="{{ url_for('auth.logout') }}"
                         >Logout</a
                       >
                     </li>

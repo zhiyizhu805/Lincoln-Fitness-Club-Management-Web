@@ -28,8 +28,13 @@ class DatabaseManager:
                 if commit:
                     connection.commit()
                     print("Transaction committed.")
+                    return 
                 else:
                     result = cursor.fetchall()
+                    if cursor.description: 
+                        dbcols = [desc[0] for desc in cursor.description]
+                    else:
+                        dbcols = ""
                 cursor.close()
         except Error as e:
             if connection:
@@ -40,7 +45,10 @@ class DatabaseManager:
             if connection and connection.is_connected():
                 connection.close()
                 print("MySQL connection is closed.")
-        return result
+        return {
+                'dbcols':dbcols,
+                'result':result
+                }
 
     def execute_transaction(self, queries):
         connection = None

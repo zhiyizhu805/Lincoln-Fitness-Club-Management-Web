@@ -12,7 +12,7 @@ def home():
         userID = session["userID"]
         query = "SELECT * FROM role WHERE role='member'"
         memberIDList = []
-        memberIDs = db_manager.execute_query(query,)
+        memberIDs = db_manager.execute_query(query,)['result']
         for memberID in memberIDs:
             memberIDList.append(memberID[0])
         if userID in memberIDList:
@@ -33,7 +33,7 @@ def login_post():
     # cur=getCursor()
     sql = """SELECT * FROM Member WHERE Email = %s AND MemberPassword = %s """
     # cur.execute(sql, (email,password))
-    member = db_manager.execute_query(sql, (email,password))
+    member = db_manager.execute_query(sql, (email,password))['result']
     if len(member) == 1:
         if member[0][17]=="Archived":
             flash("You are an archived user, please contact gym staff for more information!")
@@ -64,7 +64,7 @@ def password_reset():
     # new password has to be at leat 8 characters
     if len(password)>7 and (password==confirmPassword):
         sql = """UPDATE Member SET MemberPassword = %s WHERE Email = %s """
-        db_manager.execute_query(sql, (password, email))
+        db_manager.execute_query(sql, (password, email),commit=True)
         flash("Password reset succeed!Please login with new password!","success")
         session.pop("username", None)
         return redirect(url_for("auth.home"))
@@ -83,12 +83,12 @@ def adminLogin_post():
     password = request.form.get("password")
     error = ""
     sql = """SELECT * FROM Admin WHERE Username = %s AND UserPassword = %s """
-    user = db_manager.execute_query(sql, (username,password))
+    user = db_manager.execute_query(sql, (username,password))['result']
     if len(user) == 1:
         userID = user[0][0]
         session["userID"] = userID
         session["username"] = username
-        return redirect(url_for("admin"))
+        return redirect(url_for("admin.theAdmin"))
     else:
         flash("Invalid user name or password!","error")
         return render_template("adminLogin.html")
@@ -96,7 +96,7 @@ def adminLogin_post():
 @auth.route("/admin/logout")
 def adminLogout():
     session.pop("username", None)
-    return redirect(url_for("adminLogin_get"))
+    return redirect(url_for("auth.adminLogin_get"))
 
 #trainer login
 @auth.route("/trainer",methods=["POST", "GET"])
@@ -106,7 +106,7 @@ def trainerLogin():
         password = request.form.get("password")
         error = ""
         sql = """SELECT * FROM Trainer WHERE Email = %s AND TrainerPassword = %s """
-        trainer = db_manager.execute_query(sql, (email,password))
+        trainer = db_manager.execute_query(sql, (email,password))['result']
         if len(trainer) == 1:
             trainerID = trainer[0][0]
             session["userID"] = trainerID
@@ -130,7 +130,7 @@ def trainer_password_reset():
     # new password has to be at leat 8 characters
     if len(password)>7 and (password==confirmPassword):
         sql = """UPDATE Trainer SET TrainerPassword = %s WHERE Email = %s """
-        db_manager.execute_query(sql, (password, email))
+        db_manager.execute_query(sql, (password, email),commit=True)['result']
         flash("Password reset succeed, please login with new password!")
         return render_template("trainerLogin.html")
     else:
