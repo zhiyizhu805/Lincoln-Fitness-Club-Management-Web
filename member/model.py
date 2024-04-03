@@ -175,6 +175,13 @@ class Member:
             )
         self.getMemberDetails()
         
+    def getMyBookedGroupSessionsIDs(self):
+        result = db_manager.execute_query("SELECT ClassID FROM Booking WHERE MemberID = %s",(self.member_id,))
+        result=result['result']
+        myBookedGroupSessionsIDs=[ str(x[0]) for x in result]
+        return myBookedGroupSessionsIDs
+        
+        
         
 class Booking:
     def __init__(self):
@@ -200,4 +207,8 @@ class Booking:
                 WHERE WEEKOFYEAR(ClassDate)=%s;
             """,(WeekNum,))
         return dbresultDate['result'][0]
+    
+        
+    
+
         
