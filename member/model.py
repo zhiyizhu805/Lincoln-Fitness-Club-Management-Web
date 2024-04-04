@@ -117,8 +117,8 @@ class Member:
   
 class Booking:
     def __init__(self,member_id = None):
-       self.currentTime = datetime.now(pytz.timezone('Pacific/Auckland')).strftime("%Y-%m-%d %H:%M:%S")
        self.member_id = member_id
+       self.currentTime = datetime.now(pytz.timezone('Pacific/Auckland')).strftime("%Y-%m-%d %H:%M:%S")
     
     def getMyBookingsByWeeknum(self,WeekNum):
         result = db_manager.execute_query("""
@@ -194,6 +194,13 @@ class Booking:
                     (self.member_id, classID),
                     commit=True,
                 )
+        
+    def addPTsessionByID(self,classID):
+        sql_addBooking = """INSERT INTO Booking(MemberID,ClassID,IsPaid,BookingStatus)
+                            VALUES(%s,%s,%s,%s) """
+        db_manager.execute_query(
+            sql_addBooking, (self.member_id, classID, 1, "Current"), commit=True
+        )
     
     def cancelBookingReleaseSpace(self,classID):
         sql = """DELETE FROM Booking

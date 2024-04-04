@@ -168,6 +168,84 @@ class Timetable:
             'result':listdb
         }
         
+    def getPersonClassTimetableByWeeknum(self,weekNum):
+        result = db_manager.execute_query(
+        """
+                SELECT Timetable.StartTime, Monday, Tuesday, Wednesday, Thursday, Friday, Saturday, Sunday
+                FROM
+                (SELECT DISTINCT StartTime FROM Timetable) AS Timetable
+                LEFT JOIN
+                (SELECT
+                t.StartTime,
+                GROUP_CONCAT(distinct CASE WHEN WeekDayTable.WeekDay = 'Monday' THEN CONCAT(t.ClassID,',',c.ClassName,',',concat(tr.Firstname,' ',tr.LastName),',',tr.trainerID,',',t.ClassDate,',',t.StartTime,',',t.EndTime,',',dayofweek(t.ClassDate),',',c.Capacity-ifnull(RemainTable.TotalBooked,0),',',c.Capacity) ELSE NULL END SEPARATOR ';') AS Monday,
+                GROUP_CONCAT(distinct CASE WHEN WeekDayTable.WeekDay = 'Tuesday' THEN CONCAT(t.ClassID,',',c.ClassName,',',concat(tr.Firstname,' ',tr.LastName),',',tr.trainerID,',',t.ClassDate,',',t.StartTime,',',t.EndTime,',',dayofweek(t.ClassDate),',',c.Capacity-ifnull(RemainTable.TotalBooked,0),',',c.Capacity) ELSE NULL END SEPARATOR ';') AS Tuesday,
+                GROUP_CONCAT(distinct CASE WHEN WeekDayTable.WeekDay = 'Wednesday' THEN CONCAT(t.ClassID,',',c.ClassName,',',concat(tr.Firstname,' ',tr.LastName),',',tr.trainerID,',',t.ClassDate,',',t.StartTime,',',t.EndTime,',',dayofweek(t.ClassDate),',',c.Capacity-ifnull(RemainTable.TotalBooked,0),',',c.Capacity) ELSE NULL END SEPARATOR ';') AS Wednesday,
+                GROUP_CONCAT(distinct CASE WHEN WeekDayTable.WeekDay = 'Thursday' THEN CONCAT(t.ClassID,',',c.ClassName,',',concat(tr.Firstname,' ',tr.LastName),',',tr.trainerID,',',t.ClassDate,',',t.StartTime,',',t.EndTime,',',dayofweek(t.ClassDate),',',c.Capacity-ifnull(RemainTable.TotalBooked,0),',',c.Capacity) ELSE NULL END SEPARATOR ';') AS Thursday,
+                GROUP_CONCAT(distinct CASE WHEN WeekDayTable.WeekDay = 'Friday' THEN CONCAT(t.ClassID,',',c.ClassName,',',concat(tr.Firstname,' ',tr.LastName),',',tr.trainerID,',',t.ClassDate,',',t.StartTime,',',t.EndTime,',',dayofweek(t.ClassDate),',',c.Capacity-ifnull(RemainTable.TotalBooked,0),',',c.Capacity) ELSE NULL END SEPARATOR ';') AS Friday,
+                GROUP_CONCAT(distinct CASE WHEN WeekDayTable.WeekDay = 'Saturday' THEN CONCAT(t.ClassID,',',c.ClassName,',',concat(tr.Firstname,' ',tr.LastName),',',tr.trainerID,',',t.ClassDate,',',t.StartTime,',',t.EndTime,',',dayofweek(t.ClassDate),',',c.Capacity-ifnull(RemainTable.TotalBooked,0),',',c.Capacity) ELSE NULL END SEPARATOR ';') AS Saturday,
+                GROUP_CONCAT(distinct CASE WHEN WeekDayTable.WeekDay = 'Sunday' THEN CONCAT(t.ClassID,',',c.ClassName,',',concat(tr.Firstname,' ',tr.LastName),',',tr.trainerID,',',t.ClassDate,',',t.StartTime,',',t.EndTime,',',dayofweek(t.ClassDate),',',c.Capacity-ifnull(RemainTable.TotalBooked,0),',',c.Capacity) ELSE NULL END SEPARATOR ';') AS Sunday
+                FROM Timetable t
+                LEFT JOIN (SELECT ClassID,StartTime, DATE_FORMAT(ClassDate, '%W') AS 'WeekDay' FROM Timetable) AS WeekDayTable
+                ON WeekDayTable.ClassID = t.ClassID
+                LEFT JOIN (SELECT b.classID, COUNT(b.MemberID) AS"TotalBooked" FROM Booking b
+                LEFT JOIN Timetable t
+                ON b.ClassID = t.ClassID
+                LEFT JOIN ClassType c
+                ON c.ClassCode = t.ClassCode
+                GROUP BY b.classID) AS RemainTable
+                ON RemainTable.classID = t.ClassID
+                LEFT JOIN Booking b
+                ON b.ClassID = t.ClassID
+                LEFT JOIN ClassType c
+                ON c.ClassCode = t.ClassCode
+                LEFT JOIN Trainer tr
+                ON tr.TrainerID = t.TrainerID
+                WHERE WEEKOFYEAR(t.ClassDate) Like %s
+                and c.ClassCode=1
+                GROUP BY t.StartTime) AS Table2
+                ON Timetable.StartTime = Table2.StartTime
+                ORDER BY Timetable.StartTime;
+                                    """,
+            (weekNum,),
+        )
+        # get data for database and process
+        dbcols = result["dbcols"]
+        dbresult = result["result"]
+        listdb = []
+        listlayer = []
+        listclass = []
+        listIndividualClassInfo = []
+        for x in dbresult:
+            for y in x:
+                if type(y) != str or y == None:
+                    listlayer.append(y)
+                else:
+                    if ";" in y:
+                        for individualClassInfo in y.split(";"):
+                            for (
+                                eachElementOfIndividualClassInfo
+                            ) in individualClassInfo.split(","):
+                                listIndividualClassInfo.append(
+                                    eachElementOfIndividualClassInfo
+                                )
+                            listclass.append(listIndividualClassInfo)
+                            listIndividualClassInfo = []
+                        listlayer.append(listclass)
+                        listclass = []
+                    else:
+                        for b in y.split(","):
+                            listclass.append(b)
+                        listlayer.append(listclass)
+                        listclass = []
+
+            listdb.append(listlayer)
+            listclass = []
+            listlayer = []
+        return {
+            'dbcols':dbcols,
+            'result':listdb
+        }
+        
     
 class NoticeSender:
     def __init__(self, member_id = None,class_id = None):
@@ -187,6 +265,7 @@ class NoticeSender:
                 (self.member_id, self.current_time),
                 commit=True,
             )
+    
 
     def sendCancelBookingNotice(self):
         db_manager.execute_query(
@@ -203,7 +282,7 @@ class NoticeSender:
     
     def sendNoRefundNotice(self):
         db_manager.execute_query(
-                f"INSERT into Notice(MemberID,NoticeDate,NoticeSubject,Content) VALUES( %s, %s,'Refund', 'Cancellation for {self.related_classinfo.class_name}({self.related_classinfo.class_datetime}) within seven days is non-refundable.')",
+                f"INSERT into Notice(MemberID,NoticeDate,NoticeSubject,Content) VALUES( %s, %s,'Refund', 'The cancellation of {self.related_classinfo.class_name}({self.related_classinfo.class_datetime}) is ineligible for a refund due to it occurring within seven days of the scheduled date.')",
                 (self.member_id, self.current_time),
                 commit=True,
             ) 

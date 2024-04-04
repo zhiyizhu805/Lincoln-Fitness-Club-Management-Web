@@ -22,9 +22,9 @@
         <div class="card-body">
           <h2 class="card-title">{{ClassInfo[1]}}</h2>
           <h5 class="card-text">{{ClassInfo[-1]}}</h5>
-          {%if ClassInfo[-3]> 0 %}
+          {%if ClassInfo[-3]> 0 and  ClassID not in ExpireClassID%} 
           <h6 class="card-text font-italic text-success">{{ClassInfo[-3]}}  Available/{{ClassInfo[-2]}}</h6>
-          {%else%}
+          {%elif ClassInfo[-3]<= 0 and ClassID not in ExpireClassID%}
           <h6 class="card-text font-italic text-danger">{{ClassInfo[-3]}}  Available/{{ClassInfo[-2]}}</h6>
           {%endif%}
           <br/>
@@ -34,39 +34,41 @@
          {%if ptsessionbook == 'no'%}
             <form action="/classes/addClasses/process" method='POST'>
 
-            
-            <button href="/classes/addClasses/process"   class="btn btn-primary-theme" name="MemberID" value="{{ClassInfo[0]}}"
-            onclick="return confirm('Book in Class-{{ClassInfo[1]}} with {{ClassInfo[8]}} at {{ClassInfo[5]}} on {{ClassInfo[4]}} {{ClassInfo[3]}}?')"
-            {% if ClassInfo[-3]<=0  or  ( ClassID in BookingValidation) %} disabled {%endif%}>
-              {% if ClassID in BookingValidation%}
-              Booked
-              {%else%} 
-                {% if ClassInfo[-3]<=0 %}
-                ✋ Fully Booked
-                  {%else%}
-                  Book
-                  {%endif%}
-            {%endif%} 
-            </button>
+            {%if ClassID not in ExpireClassID%}
+              <button href="/classes/addClasses/process"   class="btn btn-primary-theme" name="MemberID" value="{{ClassInfo[0]}}"
+              onclick="return confirm('Book in Class-{{ClassInfo[1]}} with {{ClassInfo[8]}} at {{ClassInfo[5]}} on {{ClassInfo[4]}} {{ClassInfo[3]}}?')"
+              {% if ClassInfo[-3]<=0  or  ( ClassID in BookingValidation) %} disabled {%endif%}>
+                {% if ClassID in BookingValidation%}
+                Booked
+                {%else%} 
+                  {% if ClassInfo[-3]<=0 %}
+                  ✋ Fully Booked
+                    {%else%}
+                    Book
+                    {%endif%}
+              {%endif%} 
+              </button>
+            {%endif%}
             <input type="hidden" name="ClassID" value="{{ClassID}}">
             <input type="hidden" name="WaitForProcess" value="0">
             <input type="hidden" name="BookedClassDetails" value="0">
             
           </form>
           {%else%}
-
-          <button type="button" name="ClassID" Class="btn btn-primary-theme" data-bs-toggle="modal" data-bs-target="#bookingModal{{ClassInfo[-4]}}{{ClassInfo[4]}}"
-          {% if ClassInfo[-3]<=0  or  ( ClassID in BookingValidation) %} disabled {%endif%}>
-          {% if ClassID in BookingValidation%}
-          Booked
-          {%else%} 
-            {% if ClassInfo[-3]<=0 %}
-            ✋ Fully Booked
-              {%else%}
-              Book
-              {%endif%}
-          {%endif%} 
-          </button>
+          {%if ClassID not in ExpireClassID%}
+            <button type="button" name="ClassID" Class="btn btn-primary-theme" data-bs-toggle="modal" data-bs-target="#bookingModal{{ClassInfo[-4]}}{{ClassInfo[4]}}"
+            {% if ClassInfo[-3]<=0  or  ( ClassID in BookingValidation) %} disabled {%endif%}>
+            {% if ClassID in BookingValidation%}
+            Booked
+            {%else%} 
+              {% if ClassInfo[-3]<=0 %}
+              ✋ Fully Booked
+                {%else%}
+                Book
+                {%endif%}
+            {%endif%} 
+            </button>
+          {%endif%}
 
           {%endif%}
         </div>
@@ -104,11 +106,6 @@
       </div>
 
     {%endif%}
-
-
-
-
-
 
          <!-- book session payment modal -->
          <div

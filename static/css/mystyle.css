@@ -92,7 +92,6 @@ content p {
 
 td.no-hover-effect{
   transform: none !important;
-  cursor: not-allowed;
 }
 
 .disabled, .disabled:hover {
