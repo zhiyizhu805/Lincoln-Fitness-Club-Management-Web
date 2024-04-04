@@ -31,10 +31,9 @@ class Member:
         else: 
             return False
          
-    def fetchMemberDetails(self):
+    def getMemberDetails(self):
         sql = """SELECT * FROM Member WHERE Email = %s"""
         result = db_manager.execute_query(sql, (self.email,))['result']
-        print('result',result)
         if result:
             self.member_id = result[0][0]
             self.first_name = result[0][1]

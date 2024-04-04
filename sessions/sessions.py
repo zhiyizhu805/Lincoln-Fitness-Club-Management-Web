@@ -1,6 +1,5 @@
 from flask import (
     Blueprint,
-    Flask,
     flash,
     redirect,
     render_template,
@@ -12,8 +11,8 @@ from datetime import datetime
 from datetime import timedelta, date
 from database import db_manager
 import pytz
-from sessions.model import Timetable
-from member.model import Member
+from sessions.model import Timetable,NoticeSender,Class
+from member.model import Member,Booking
 
 
 sessions = Blueprint(
@@ -31,193 +30,100 @@ formatted_now_nz = now_nz.strftime("%Y-%m-%d %H:%M:%S")
 
 Today = date.today()
 
+def getGroupSessions(dateChosen):
+    timetable = Timetable()
+    maxDate = timetable.getMaxAvailableDate()
+    weekNum = timetable.getWeeknumByDateChosen(dateChosen)
+    ExpireClassID = timetable.getExpiredClasses(weekNum)
+    dates = timetable.getCorrespondingDates(weekNum)
+    timetableByWeekNum = timetable.getGroupSessionsTimetableByWeeknum(weekNum)
+    return{
+       'maxDate': maxDate,
+       'dates':dates,
+       'ExpireClassID':ExpireClassID,
+       'timetableByWeekNum':timetableByWeekNum
+    }
+    
+def calculateTimedelta(classDateTime):   # Allowed classDateTime type <class 'str'> in "%Y-%m-%d %H:%M:%S" format.
+    formatedClassDateTime = datetime.strptime(classDateTime, "%Y-%m-%d %H:%M:%S")  # Convert to type <class 'datetime.datetime'>
+    formatedCurrentTime = datetime.strptime(formatted_now_nz, "%Y-%m-%d %H:%M:%S") 
+    time_delta = formatedClassDateTime - formatedCurrentTime  #<class 'datetime.timedelta'>
+    print('time_delta',type(time_delta))
+    return time_delta
 
 @sessions.route("/classes")
 def classes():
     if "username" in session:
-        member = Member(session["username"])
-        member.getMemberDetails()
-        timetable = Timetable(session["username"])
-        # get member chosen date
+        mybooking = Booking(session["userID"])
+        myBookedClassIds = mybooking.getMyBookedGroupSessionsIDs()
         dateChosen = request.args.get("dateChosen", "")
-        maxDate = timetable.getMaxAvailableDate()
-        weekNum = timetable.getWeeknumByDateChosen(dateChosen)
-        # get member booked class list
-        myBookedClassIds = member.getMyBookedGroupSessionsIDs()
-        # get expired classes list by weeknum
-        ExpireClassID = timetable.getExpiredClasses(weekNum)
-        # get dates by weeknum
-        dates = timetable.getCorrespondingDates(weekNum)
-        # get timetable by weeknum
-        timetableByWeekNum = timetable.getGroupSessionsTimetableByWeeknum(weekNum)
+        groupSessions = getGroupSessions(dateChosen)
         return render_template(
             "classes.html",
             username=session["username"],
-            dbcols=timetableByWeekNum["dbcols"],
-            dbresult=timetableByWeekNum["result"],
+            dbcols=groupSessions['timetableByWeekNum']["dbcols"],
+            dbresult=groupSessions['timetableByWeekNum']["result"],
             dateChosen=dateChosen,
-            dbresultDate=dates,
+            dbresultDate=groupSessions['dates'],
             Today=Today,
-            maxdate=maxDate,
+            maxdate=groupSessions['maxDate'],
             BookedClassID=myBookedClassIds,
-            ExpireClassID=ExpireClassID,
+            ExpireClassID=groupSessions['ExpireClassID'],
         )
     else:
-        return redirect(url_for("auth.home"))
+        dateChosen = request.args.get("dateChosen", "")
+        groupSessions = getGroupSessions(dateChosen)
+        return render_template(
+            "classes.html",
+            dbcols=groupSessions['timetableByWeekNum']["dbcols"],
+            dbresult=groupSessions['timetableByWeekNum']["result"],
+            dateChosen=dateChosen,
+            dbresultDate=groupSessions['dates'],
+            Today=Today,
+            maxdate=groupSessions['maxDate'],
+            ExpireClassID=groupSessions['ExpireClassID'],
+        )
+    
+
 
 
 @sessions.route("/classes/addClasses/process", methods=["POST"])
 def addClasse():
     if "username" in session:
         username = session["username"]
-        # Get MemberID
-        result1 = db_manager.execute_query(
-            "SELECT * FROM Member where Member.Email=%s", (username,)
-        )
-        dbresult1 = result1["result"]
-        memberStatus = dbresult1[0][-2]
-        if memberStatus != "Inactive":
-            MemberID = dbresult1[0][0]
-            # the variable is to define where the data come from,and show different content to users or redirect to different pages
+        member = Member(session["username"])
+        member.getMemberDetails()
+        # timetable = Timetable()
+        mybooking = Booking(member.member_id)
+        if member.member_status != "Inactive":
             WaitForProcess = request.form["WaitForProcess"]
-            # if BookedClassDetails==1 show button link back to my booking page
             BookedClassDetails = request.form["BookedClassDetails"]
+            BookingValidation = mybooking.getMyBookedGroupSessionsIDs()
             # if WaitForProcess=='1',show members the detailed class info page first with the booking button.
             if WaitForProcess == "1":
                 ptsessionbook = request.form["ptsessionbook"]
-                # GET classID
                 ClassID = request.form["ClassID"]
-                result2 = db_manager.execute_query(
-                    """
-                                select distinct t.ClassID,c.ClassName,concat(tr.Firstname,' ',tr.LastName) as 'Trainer Name',DATE_FORMAT(t.ClassDate,'%d-%b-%Y'),WeekDayTable.WeekDay,t.StartTime,t.EndTime,CONCAT(ClassDate, ' ', StartTime) AS 'DateTime',tr.TrainerID,
-                                (c.Capacity-ifnull(RemainTable.TotalBooked,0)) as"TotalRemaining",c.Capacity,c.ClassDescription
-                                from Timetable t
-                                left join
-                                (select ClassID,date_format(ClassDate,'%W') as 'WeekDay' from Timetable) as WeekDayTable
-                                on WeekDayTable.ClassID=t.ClassID
-                                left join (select b.classID,count(b.MemberID) as"TotalBooked" from Booking b
-                                left join Timetable t
-                                on b.ClassID=t.ClassID
-                                left join ClassType c
-                                on c.ClassCode=t.ClassCode
-                                group by b.classID) as RemainTable
-                                on  RemainTable.classID=t.ClassID
-                                left join Booking b
-                                on b.ClassID=t.ClassID
-                                left join ClassType c
-                                on c.ClassCode=t.ClassCode
-                                left join Trainer tr
-                                on tr.TrainerID=t.TrainerID
-                                where t.ClassID=%s
-                                """,
-                    (ClassID,),
-                )
-                dbresultClassInfo = result2["result"]
-                # Validation
-                # check if the class has been booked.If yes,disable the book button
-                result3 = db_manager.execute_query(
-                    """select ClassID from Booking
-                                where MemberID=%s""",
-                    (MemberID,),
-                )
-                BookingValidationDB = result3["result"]
-                BookingValidation = []
-                for x in BookingValidationDB:
-                    for y in x:
-                        y = str(y)
-                        BookingValidation.append(y)
-                now = datetime.now()
-                ClassDateTime = datetime.strptime(
-                    dbresultClassInfo[0][7], "%Y-%m-%d %H:%M:%S"
-                )
-                if ClassDateTime < now:
-                    DisableBookButton = "Yes"
-                    flash("Lessons that have already occurred cannot be booked.")
-                else:
-                    DisableBookButton = "No"
+                chosenClass = Class(ClassID)
+                chosenClassDetails = chosenClass.getClassInfoByID()
                 return render_template(
                     "ClassBook.html",
                     section="#DisplayFirst",
-                    dbresultClassInfo=dbresultClassInfo,
+                    dbresultClassInfo=chosenClassDetails,
                     ClassID=ClassID,
                     BookingValidation=BookingValidation,
                     username=username,
                     BookedClassDetails=BookedClassDetails,
-                    DisableBookButton=DisableBookButton,
                     ptsessionbook=ptsessionbook,
                 )
             elif WaitForProcess == "0":
                 ClassID = request.form["ClassID"]
-                # get related class info for the new class need to be added.
-                result4 = db_manager.execute_query(
-                    """
-                            select t.ClassID,t.ClassDate,t.StartTime,c.ClassName from Timetable t
-                            left join ClassType c
-                            on c.Classcode=t.ClassCode
-                            where t.ClassID=%s
-                            """,
-                    (ClassID,),
-                )
-                dbresultClassTobeBooked = result4["result"]
-                ClassDateTobeBooked = dbresultClassTobeBooked[0][1]
-                ClassTimeTobeBooked = dbresultClassTobeBooked[0][2]
-                # validation for same time same date booking.Prevent double booking.
-                result5 = db_manager.execute_query(
-                    """
-                            select t.ClassID,c.ClassName,t.ClassDate,t.StartTime,t.EndTime,DATE_FORMAT(t.ClassDate,'%d-%b-%Y') from Booking b
-                            left join Timetable t
-                            on b.ClassID=t.ClassID
-                            left join ClassType c
-                            on c.ClassCode=t.ClassCode
-                            left join Member m
-                            on m.MemberID=b.MemberID
-                            where b.MemberID=%s
-                            and t.ClassDate=%s
-                            and t.StartTime=%s
-                            order by t.ClassDate;
-                            """,
-                    (MemberID, ClassDateTobeBooked, ClassTimeTobeBooked),
-                )
-                dbresultValidation = result5["result"]
-                # if dbresult is empty means there is no classes booked in this specific datetime
-                if dbresultValidation == []:
-                    # then book the new class in
-                    print("start executing")
-                    db_manager.execute_query(
-                        "insert into Booking (MemberID,ClassID,IsPaid,BookingStatus) values(%s,%s,'0','Current')",
-                        (MemberID, ClassID),
-                        commit=True,
-                    )
-                    print("finish executing")
-                    # After the course reservation is successful, redirect the user to the "My Reservations" page which displays
-                    # the latest reservation information.
-                    sql = """select ClassDate from Timetable
-                            where ClassID=%s"""
-                    result6 = db_manager.execute_query(sql, (ClassID,))
-                    ClassDateDB = result6["result"]
-                    ClassDate = ClassDateDB[0][0].strftime("%Y-%m-%d")
-                    # NOTICE INSERT
-                    result7 = db_manager.execute_query(
-                        "SELECT ClassCode from Timetable where ClassID=%s", (ClassID,)
-                    )
-                    dbClassCode = result7["result"]
-                    now = datetime.now()
-                    if dbClassCode[0][0] != 1:
-                        db_manager.execute_query(
-                            "INSERT into Notice(MemberID,NoticeDate,NoticeSubject,Content) VALUES( %s, %s, 'ClassBooked', 'You have booked a class successfully!')",
-                            (MemberID, now),
-                            commit=True,
-                        )
-                    flash("The Class has been added to your list!", "successBooked")
-                    return redirect(f"/myBooking?dateChosen={ClassDate}")
-                else:
-                    # flash(f"Fail to add {dbresultClassTobeBooked[0][-1]} to your list because you have already scheduled {dbresultValidation[0][1]} at {dbresultValidation[0][3]} on {dbresultValidation[0][-1]}.","errorbook")
-                    flash(
-                        f"Fail to add {dbresultClassTobeBooked[0][-1]}! to your list.You have scheduled for another class at same time.",
-                        "errorbook",
-                    )
-                    return redirect(f"/myBooking")
-
+                chosenClass = Class(ClassID)
+                if chosenClass.class_id not in BookingValidation:
+                    mybooking.addBookingByID(ClassID)
+                    myNoticeSender = NoticeSender(session["userID"],ClassID)
+                    myNoticeSender.sendBookingNotice()
+                    flash(f"{chosenClass.class_name}({chosenClass.class_datetime}) has been added to your list!", "successBooked")
+                    return redirect(f"/myBooking?dateChosen={chosenClass.class_datetime.split(' ')[0]}")
             else:
                 # If fail adding class.Print error notice.
                 return redirect(f"/classes")
@@ -486,91 +392,37 @@ def bookSession():
         db_manager.execute_query(
             sql_addBooking, (memberID, classID, 1, "Current"), commit=True
         )
-        # flash("You have booked a PT session successfully!")
-
-        # Notice add
-        dbClassCode = db_manager.execute_query(
-            "SELECT ClassCode from Timetable where ClassID=%s", (classID,)
-        )["result"]
-        now = datetime.now()
-        if dbClassCode[0][0] == 1:
-            db_manager.execute_query(
-                "INSERT into Notice(MemberID,NoticeDate,NoticeSubject,Content) VALUES( %s, %s, 'Deduction', 'You have made a payment with $50')",
-                (memberID, now),
-                commit=True,
-            )
-        # Notice add
-
+        myNoticeSender = NoticeSender(session["userID"],classID)
+        myNoticeSender.sendBookingNotice()
         flash("PT session has been added to your list!", "successBooked")
         return redirect(url_for("member.myBooking"))
     else:
         flash("payment is fail,try again")
         return redirect(url_for("ptsession"))
-
+    
 
 @sessions.route("/cancelClass", methods=["POST"])
 def cancelClass():
     ClassID = request.form["ClassID"]
     MemberID = request.form["MemberID"]
-    # if classDate is less than a week before today. No refund
-    sql = """   select t.ClassDate,CONCAT(ClassDate, ' ', StartTime) AS 'DateTime',c.ClassCode,c.ClassName from Timetable t
-                left join ClassType c
-                on c.Classcode=t.ClassCode
-                where t.ClassID=%s"""
-    ClassDateDB = db_manager.execute_query(sql, (ClassID,))["result"][0]
-    ClassCode = ClassDateDB[-2]
-    ClassDate = ClassDateDB[0].strftime("%Y-%m-%d")
-    ClassDateTime = datetime.strptime(ClassDateDB[1], "%Y-%m-%d %H:%M:%S")
-    now = datetime.now()
-    time_delta = ClassDateTime - now
-    if time_delta.days < 0:
-        flash(
-            f"Sorry!{ClassDateDB[-1]} scheduled for {ClassDateDB[0]} cannot be cancelled as the course has already taken place!",
-            "error",
-        )
-        return redirect(f"/myBooking?dateChosen={ClassDate}")
-
+    myNoticeSender = NoticeSender(session["userID"],ClassID)
+    chosenClass = Class(ClassID)
+    mybooking = Booking(MemberID)
+    time_delta = calculateTimedelta(chosenClass.class_datetime)
+    if time_delta.days > 7 or (time_delta.days <= 7 and chosenClass.class_code != 1):
+        mybooking.cancelBookingReleaseSpace(ClassID)
+        myNoticeSender.sendCancelBookingNotice()
+        flash(f"{chosenClass.class_name}({chosenClass.class_datetime}) has been cancelled successfully!", "successCancelled")
+        if chosenClass.class_code == 1:
+            myNoticeSender.sendRefundNotice()
+        return redirect(f"/myBooking?dateChosen={chosenClass.class_datetime.split(' ')[0]}")
     else:
-        # if > 7days,both pt session and class can get refund and places released for re-book
-        # if < 7 days,only places for classes will be released for re-book
-        if time_delta.days > 7 or (time_delta.days <= 7 and ClassCode != 1):
-            sql = """DELETE FROM Booking
-                    WHERE MemberID = %s AND ClassID = %s """
-            db_manager.execute_query(sql, (MemberID, ClassID), commit=True)
-            # NOTICE INSERT
-            dbClassCode = db_manager.execute_query(
-                "SELECT ClassCode from Timetable where ClassID=%s", (ClassID,)
-            )["result"]
-            if dbClassCode[0][0] != 1:
-                db_manager.execute_query(
-                    "INSERT into Notice(MemberID,NoticeDate,NoticeSubject,Content) VALUES( %s, %s,'CancelClass', 'You have cancel a class')",
-                    (MemberID, now),
-                    commit=True,
-                )
-            else:
-                db_manager.execute_query(
-                    "INSERT into Notice(MemberID,NoticeDate,NoticeSubject,Content) VALUES( %s, %s,'Refund', 'You have cancelled a PT session and received a refund of $50')",
-                    (MemberID, now),
-                    commit=True,
-                )
-            # NOTICE INSERT
-            flash("The class has been cancelled successfully!", "successCancelled")
-            return redirect("/myBooking")
-        else:
-            # pt sessions that are cancelled within 7 days members will not get the refund and
-            # the place for pt session will not be released.(cant re-book by other members)
-            sql = """update Booking set BookingStatus='Cancelled'
-                    where ClassID=%s and MemberID=%s"""
-            db_manager.execute_query(sql, (ClassID, MemberID), commit=True)
-            # NOTICE INSERT
-            db_manager.execute_query(
-                "INSERT into Notice(MemberID,NoticeDate,NoticeSubject,Content) VALUES( %s, %s,'CancelClass', 'You have successfully canceled the PT session.Cancellation within seven days is non-refundable.')",
-                (MemberID, now),
-                commit=True,
-            )
-            # NOTICE INSERT
-            flash(
-                "You have successfully canceled the PT session, but as the cancellation was made within one week of the session, you will not receive a refund.!",
-                "successCancelled",
-            )
-            return redirect("/myBooking")
+        # pt sessions that are cancelled within 7 days members will not get the refund.
+        mybooking.cancelBookingReleaseSpace(ClassID)
+        myNoticeSender.sendCancelBookingNotice()
+        myNoticeSender.sendNoRefundNotice()
+        flash(
+            "You have successfully canceled the PT session, but as the cancellation was made within one week of the session, you will not receive a refund.!",
+            "successCancelled",
+        )
+        return redirect(f"/myBooking?dateChosen={chosenClass.class_datetime.split(' ')[0]}")

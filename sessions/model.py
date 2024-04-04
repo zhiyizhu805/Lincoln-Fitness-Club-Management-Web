@@ -5,8 +5,7 @@ from dateutil.relativedelta import relativedelta
 import pytz
 
 class Timetable:
-    def __init__(self,member_id = None):
-        self.member_id = member_id
+    def __init__(self):
         self.currentDate = date.today()
         self.currentTime = datetime.now(pytz.timezone('Pacific/Auckland')).strftime("%Y-%m-%d %H:%M:%S")
     
@@ -105,3 +104,147 @@ class Timetable:
             'dbcols':result['dbcols'],
             'result':listdb
         }
+        
+    def getClassInfoByID(self,classID):
+        result = db_manager.execute_query(
+                    """
+                                select distinct t.ClassID,c.ClassName,concat(tr.Firstname,' ',tr.LastName) as 'Trainer Name',DATE_FORMAT(t.ClassDate,'%d-%b-%Y'),WeekDayTable.WeekDay,t.StartTime,t.EndTime,CONCAT(ClassDate, ' ', StartTime) AS 'DateTime',tr.TrainerID,c.ClassCode,(c.Capacity-ifnull(RemainTable.TotalBooked,0)) as"TotalRemaining",c.Capacity,c.ClassDescription
+                                from Timetable t
+                                left join
+                                (select ClassID,date_format(ClassDate,'%W') as 'WeekDay' from Timetable) as WeekDayTable
+                                on WeekDayTable.ClassID=t.ClassID
+                                left join (select b.classID,count(b.MemberID) as"TotalBooked" from Booking b
+                                left join Timetable t
+                                on b.ClassID=t.ClassID
+                                left join ClassType c
+                                on c.ClassCode=t.ClassCode
+                                group by b.classID) as RemainTable
+                                on  RemainTable.classID=t.ClassID
+                                left join Booking b
+                                on b.ClassID=t.ClassID
+                                left join ClassType c
+                                on c.ClassCode=t.ClassCode
+                                left join Trainer tr
+                                on tr.TrainerID=t.TrainerID
+                                where t.ClassID=%s
+                                """,
+                    (classID,),
+                )
+        classInfoByID = result["result"]
+        print('classInfoByID',classInfoByID)
+        return classInfoByID
+    
+    def getClasscodeByID(self,classID):
+        result7 = db_manager.execute_query(
+                        "SELECT * from Timetable where ClassID=%s", (classID,)
+                    )
+        classCode = result7["result"][0]
+        return classCode
+    
+    
+class NoticeSender:
+    def __init__(self, member_id = None,class_id = None):
+        self.member_id = member_id
+        self.current_time = datetime.now()
+        self.related_classinfo = Class(class_id)
+    
+    def sendBookingNotice(self):
+        db_manager.execute_query(
+                    f"INSERT into Notice(MemberID,NoticeDate,NoticeSubject,Content) VALUES( %s, %s, 'ClassBooked', 'You have booked {self.related_classinfo.class_name}({self.related_classinfo.class_datetime}) successfully!')",
+                    (self.member_id, self.current_time),
+                    commit=True,
+                )
+        if self.related_classinfo.class_code == 1:
+            db_manager.execute_query(
+                "INSERT into Notice(MemberID,NoticeDate,NoticeSubject,Content) VALUES( %s, %s, 'Deduction', 'You have made a payment with $50')",
+                (self.member_id, self.current_time),
+                commit=True,
+            )
+    
+
+    def sendCancelBookingNotice(self):
+        db_manager.execute_query(
+                f"INSERT into Notice(MemberID,NoticeDate,NoticeSubject,Content) VALUES( %s, %s,'CancelClass', '{self.related_classinfo.class_name}({self.related_classinfo.class_datetime}) has been cancelled successfully.')",
+                (self.member_id, self.current_time),
+                commit=True,
+            )
+    def sendRefundNotice(self):
+        db_manager.execute_query(
+            f"INSERT into Notice(MemberID,NoticeDate,NoticeSubject,Content) VALUES( %s, %s,'Refund', 'We have refunded you $50 for {self.related_classinfo.class_name}({self.related_classinfo.class_datetime})')",
+            (self.member_id, self.current_time),
+            commit=True,
+        )
+    
+    def sendNoRefundNotice(self):
+        db_manager.execute_query(
+                f"INSERT into Notice(MemberID,NoticeDate,NoticeSubject,Content) VALUES( %s, %s,'Refund', 'Cancellation for {self.related_classinfo.class_name}({self.related_classinfo.class_datetime}) within seven days is non-refundable.')",
+                (self.member_id, self.current_time),
+                commit=True,
+            ) 
+        
+                
+        
+class Class:
+    def __init__(self,class_id = None,class_name = None,trainer_fullname = None,class_date = None,class_weekday = None,class_starttime = None,class_endtime = None,class_datetime = None,trainer_id = None,class_code = None,space_remaining = None,space_capacity = None,class_desc = None):
+        self.class_id = class_id
+        self.class_name = class_name
+        self.trainer_fullname = trainer_fullname
+        self.class_date = class_date
+        self.class_weekday = class_weekday
+        self.class_starttime = class_starttime
+        self.class_endtime = class_endtime
+        self.class_datetime = class_datetime
+        self.trainer_id = trainer_id
+        self.class_code = class_code
+        self.space_remaining = space_remaining
+        self.space_capacity = space_capacity
+        self.class_desc = class_desc
+        self.getClassInfoByID()
+        
+        
+        
+    def getClassInfoByID(self):
+        if self.class_id == None:
+            return False
+        result = db_manager.execute_query(
+                    """
+                                select distinct t.ClassID,c.ClassName,concat(tr.Firstname,' ',tr.LastName) as 'Trainer Name',DATE_FORMAT(t.ClassDate,'%d-%b-%Y'),WeekDayTable.WeekDay,t.StartTime,t.EndTime,CONCAT(ClassDate, ' ', StartTime) AS 'DateTime',tr.TrainerID,c.ClassCode,
+                                (c.Capacity-ifnull(RemainTable.TotalBooked,0)) as"TotalRemaining",c.Capacity,c.ClassDescription
+                                from Timetable t
+                                left join
+                                (select ClassID,date_format(ClassDate,'%W') as 'WeekDay' from Timetable) as WeekDayTable
+                                on WeekDayTable.ClassID=t.ClassID
+                                left join (select b.classID,count(b.MemberID) as"TotalBooked" from Booking b
+                                left join Timetable t
+                                on b.ClassID=t.ClassID
+                                left join ClassType c
+                                on c.ClassCode=t.ClassCode
+                                group by b.classID) as RemainTable
+                                on  RemainTable.classID=t.ClassID
+                                left join Booking b
+                                on b.ClassID=t.ClassID
+                                left join ClassType c
+                                on c.ClassCode=t.ClassCode
+                                left join Trainer tr
+                                on tr.TrainerID=t.TrainerID
+                                where t.ClassID=%s
+                                """,
+                    (self.class_id,),
+                )
+        classInfoByID = result["result"]
+        self.class_id = classInfoByID[0][0]
+        self.class_name = classInfoByID[0][1]
+        self.trainer_fullname = classInfoByID[0][2]
+        self.class_date = classInfoByID[0][3]
+        self.class_weekday = classInfoByID[0][4]
+        self.class_starttime = classInfoByID[0][5]
+        self.class_endtime = classInfoByID[0][6]
+        self.class_datetime = classInfoByID[0][7]
+        self.trainer_id = classInfoByID[0][-5]
+        self.class_code = classInfoByID[0][-4]
+        self.space_remaining = classInfoByID[0][-3]
+        self.space_capacity = classInfoByID[0][-2]
+        self.class_desc = classInfoByID[0][-1]
+        return classInfoByID
+    
+    

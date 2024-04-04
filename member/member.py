@@ -1,6 +1,7 @@
 from flask import Blueprint, flash, redirect, render_template, request, session, url_for
 from datetime import date, datetime
-from member.model import Member, Booking
+from member.model import Member,Booking
+from sessions.model import Timetable
 
 member = Blueprint(
     "member",
@@ -56,8 +57,9 @@ def myProfileEdit():
 def myBooking():
     if "username" in session:
         username = session["username"]
-        member = Member(session["username"])
-        member.getMemberDetails()
+        # member = Member(session["username"])
+        # member.getMemberDetails()
+        mybooking = Booking(session["userID"])
         dateChosen = request.args.get("dateChosen", "")
         # if user input is empty,show current date class booking record
         if dateChosen == "":
@@ -66,9 +68,10 @@ def myBooking():
         else:
             dateChosen = datetime.strptime(dateChosen, "%Y-%m-%d").date()
             WeekNum = int(dateChosen.strftime("%W"))
-        ExpireClassID = Booking().getExpiredClasses(WeekNum)
-        datesForChosenWeek = Booking().getCorrespondingDates(WeekNum)
-        myBookingsByWeeknum = member.getMyBookingsByWeeknum(WeekNum)
+        ExpireClassID = Timetable().getExpiredClasses(WeekNum)
+        datesForChosenWeek = Timetable().getCorrespondingDates(WeekNum)
+        myBookingsByWeeknum = mybooking.getMyBookingsByWeeknum(WeekNum)
+        print('myBookingsByWeeknum',myBookingsByWeeknum)
         return render_template(
             "myBooking.html",
             username=username,
@@ -76,7 +79,7 @@ def myBooking():
             dbresult=myBookingsByWeeknum["result"],
             dateChosen=dateChosen,
             dbresultDate=datesForChosenWeek,
-            MemberID=member.member_id,
+            MemberID=session["userID"],
             ExpireClassID=ExpireClassID,
         )
     else:

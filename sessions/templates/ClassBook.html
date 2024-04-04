@@ -37,7 +37,7 @@
             
             <button href="/classes/addClasses/process"   class="btn btn-primary-theme" name="MemberID" value="{{ClassInfo[0]}}"
             onclick="return confirm('Book in Class-{{ClassInfo[1]}} with {{ClassInfo[8]}} at {{ClassInfo[5]}} on {{ClassInfo[4]}} {{ClassInfo[3]}}?')"
-            {% if ClassInfo[-3]<=0  or  ( ClassID in BookingValidation) or DisableBookButton=='Yes' %} disabled {%endif%}>
+            {% if ClassInfo[-3]<=0  or  ( ClassID in BookingValidation) %} disabled {%endif%}>
               {% if ClassID in BookingValidation%}
               Booked
               {%else%} 
@@ -56,7 +56,7 @@
           {%else%}
 
           <button type="button" name="ClassID" Class="btn btn-primary-theme" data-bs-toggle="modal" data-bs-target="#bookingModal{{ClassInfo[-4]}}{{ClassInfo[4]}}"
-          {% if ClassInfo[-3]<=0  or  ( ClassID in BookingValidation) or DisableBookButton=='Yes' %} disabled {%endif%}>
+          {% if ClassInfo[-3]<=0  or  ( ClassID in BookingValidation) %} disabled {%endif%}>
           {% if ClassID in BookingValidation%}
           Booked
           {%else%} 

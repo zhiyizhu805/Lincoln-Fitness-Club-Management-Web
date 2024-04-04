@@ -33,7 +33,11 @@ class DatabaseManager:
                     dbcols = [desc[0] for desc in cursor.description]
                 else:
                     dbcols = ""
-                cursor.close()
+                # cursor.close()
+                return {
+                'dbcols':dbcols,
+                'result':result
+                }
         except Error as e:
             if connection:
                 connection.rollback()
@@ -43,10 +47,7 @@ class DatabaseManager:
             if connection and connection.is_connected():
                 connection.close()
                 print("MySQL connection is closed.")
-        return {
-                'dbcols':dbcols,
-                'result':result
-                }
+
 
     def execute_transaction(self, queries):
         connection = None

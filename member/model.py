@@ -29,7 +29,6 @@ class Member:
     def getMemberDetails(self):
         sql = """SELECT * FROM Member WHERE Email = %s"""
         result = db_manager.execute_query(sql, (self.email,))['result']
-        print('result',result)
         if result:
             self.member_id = result[0][0]
             self.first_name = result[0][1]
@@ -53,66 +52,6 @@ class Member:
             return result[0]
         return False
     
-    def getMyBookingsByWeeknum(self,WeekNum):
-        result = db_manager.execute_query("""
-                SELECT Timetable.StartTime, Monday, Tuesday, Wednesday, Thursday, Friday, Saturday, Sunday
-                FROM
-                (SELECT DISTINCT StartTime FROM Timetable) AS Timetable
-                LEFT JOIN
-                (SELECT
-                t.StartTime,
-                MAX(CASE WHEN WeekDayTable.WeekDay = 'Monday' THEN CONCAT(t.ClassID,',',c.ClassName,',',concat(tr.Firstname,' ',tr.LastName),',',DATE_FORMAT(t.ClassDate,'%d-%b-%Y'),',',t.StartTime,',',t.EndTime,',',t.ClassCode) ELSE NULL END) AS Monday,
-                MAX(CASE WHEN WeekDayTable.WeekDay = 'Tuesday' THEN CONCAT(t.ClassID,',',c.ClassName,',',concat(tr.Firstname,' ',tr.LastName),',',DATE_FORMAT(t.ClassDate,'%d-%b-%Y'),',',t.StartTime,',',t.EndTime,',',t.ClassCode) ELSE NULL END) AS Tuesday,
-                MAX(CASE WHEN WeekDayTable.WeekDay = 'Wednesday' THEN CONCAT(t.ClassID,',',c.ClassName,',',concat(tr.Firstname,' ',tr.LastName),DATE_FORMAT(t.ClassDate,'%d-%b-%Y'),',',t.StartTime,',',t.EndTime,',',t.ClassCode) ELSE NULL END) AS Wednesday,
-                MAX(CASE WHEN WeekDayTable.WeekDay = 'Thursday' THEN CONCAT(t.ClassID,',',c.ClassName,',',concat(tr.Firstname,' ',tr.LastName),',',DATE_FORMAT(t.ClassDate,'%d-%b-%Y'),',',t.StartTime,',',t.EndTime,',',t.ClassCode) ELSE NULL END) AS Thursday,
-                MAX(CASE WHEN WeekDayTable.WeekDay = 'Friday' THEN CONCAT(t.ClassID,',',c.ClassName,',',concat(tr.Firstname,' ',tr.LastName),',',DATE_FORMAT(t.ClassDate,'%d-%b-%Y'),',',t.StartTime,',',t.EndTime,',',t.ClassCode) ELSE NULL END) AS Friday,
-                MAX(CASE WHEN WeekDayTable.WeekDay = 'Saturday' THEN CONCAT(t.ClassID,',',c.ClassName,',',concat(tr.Firstname,' ',tr.LastName),',',DATE_FORMAT(t.ClassDate,'%d-%b-%Y'),',',t.StartTime,',',t.EndTime,',',t.ClassCode) ELSE NULL END) AS Saturday,
-                MAX(CASE WHEN WeekDayTable.WeekDay = 'Sunday' THEN CONCAT(t.ClassID,',',c.ClassName,',',concat(tr.Firstname,' ',tr.LastName),',',DATE_FORMAT(t.ClassDate,'%d-%b-%Y'),',',t.StartTime,',',t.EndTime,',',t.ClassCode) ELSE NULL END) AS Sunday
-                FROM Timetable t
-                LEFT JOIN (SELECT ClassID,StartTime, DATE_FORMAT(ClassDate, '%W') AS 'WeekDay' FROM Timetable) AS WeekDayTable
-                ON WeekDayTable.ClassID = t.ClassID
-                LEFT JOIN (SELECT b.classID, COUNT(b.MemberID) AS"TotalBooked" FROM Booking b
-                LEFT JOIN Timetable t
-                ON b.ClassID = t.ClassID
-                LEFT JOIN ClassType c
-                ON c.ClassCode = t.ClassCode
-                GROUP BY b.classID) AS RemainTable
-                ON RemainTable.classID = t.ClassID
-                LEFT JOIN Booking b
-                ON b.ClassID = t.ClassID
-                LEFT JOIN ClassType c
-                ON c.ClassCode = t.ClassCode
-                LEFT JOIN Trainer tr
-                ON tr.TrainerID = t.TrainerID
-                WHERE
-                b.MemberID=%s AND
-                b.BookingStatus='Current' and
-                WEEKOFYEAR(t.ClassDate) Like %s
-                GROUP BY t.StartTime) AS Table2
-                ON Timetable.StartTime = Table2.StartTime
-                ORDER BY Timetable.StartTime;""",(self.member_id,WeekNum))
-        dbcols=result['dbcols']
-        dbresult=result['result']
-        #get data for database and process
-        listdb=[]
-        listlayer=[]
-        listclass=[]
-        for x in dbresult:
-            for y in x:
-                if type(y)!=str or y=='':
-                    listlayer.append(y)
-                else:
-                    for b in y.split(","):
-                        listclass.append(b)
-                    listlayer.append(listclass)
-                    listclass=[]
-            listdb.append(listlayer)
-            listclass=[]
-            listlayer=[]
-        return {
-            'dbcols': dbcols,
-            'result':listdb
-        }
     
     def updateProfile(self,formData):
         sql="""update Member set FirstName=%s, LastName=%s,Email=%s, PhysicalAddress=%s, Phone=%s, DateOfBirth=%s,
@@ -175,40 +114,94 @@ class Member:
             )
         self.getMemberDetails()
         
+  
+class Booking:
+    def __init__(self,member_id = None):
+       self.currentTime = datetime.now(pytz.timezone('Pacific/Auckland')).strftime("%Y-%m-%d %H:%M:%S")
+       self.member_id = member_id
+    
+    def getMyBookingsByWeeknum(self,WeekNum):
+        result = db_manager.execute_query("""
+                SELECT Timetable.StartTime, Monday, Tuesday, Wednesday, Thursday, Friday, Saturday, Sunday
+                FROM
+                (SELECT DISTINCT StartTime FROM Timetable) AS Timetable
+                LEFT JOIN
+                (SELECT
+                t.StartTime,
+                MAX(CASE WHEN WeekDayTable.WeekDay = 'Monday' THEN CONCAT(t.ClassID,',',c.ClassName,',',concat(tr.Firstname,' ',tr.LastName),',',DATE_FORMAT(t.ClassDate,'%d-%b-%Y'),',',t.StartTime,',',t.EndTime,',',t.ClassCode) ELSE NULL END) AS Monday,
+                MAX(CASE WHEN WeekDayTable.WeekDay = 'Tuesday' THEN CONCAT(t.ClassID,',',c.ClassName,',',concat(tr.Firstname,' ',tr.LastName),',',DATE_FORMAT(t.ClassDate,'%d-%b-%Y'),',',t.StartTime,',',t.EndTime,',',t.ClassCode) ELSE NULL END) AS Tuesday,
+                MAX(CASE WHEN WeekDayTable.WeekDay = 'Wednesday' THEN CONCAT(t.ClassID,',',c.ClassName,',',concat(tr.Firstname,' ',tr.LastName),DATE_FORMAT(t.ClassDate,'%d-%b-%Y'),',',t.StartTime,',',t.EndTime,',',t.ClassCode) ELSE NULL END) AS Wednesday,
+                MAX(CASE WHEN WeekDayTable.WeekDay = 'Thursday' THEN CONCAT(t.ClassID,',',c.ClassName,',',concat(tr.Firstname,' ',tr.LastName),',',DATE_FORMAT(t.ClassDate,'%d-%b-%Y'),',',t.StartTime,',',t.EndTime,',',t.ClassCode) ELSE NULL END) AS Thursday,
+                MAX(CASE WHEN WeekDayTable.WeekDay = 'Friday' THEN CONCAT(t.ClassID,',',c.ClassName,',',concat(tr.Firstname,' ',tr.LastName),',',DATE_FORMAT(t.ClassDate,'%d-%b-%Y'),',',t.StartTime,',',t.EndTime,',',t.ClassCode) ELSE NULL END) AS Friday,
+                MAX(CASE WHEN WeekDayTable.WeekDay = 'Saturday' THEN CONCAT(t.ClassID,',',c.ClassName,',',concat(tr.Firstname,' ',tr.LastName),',',DATE_FORMAT(t.ClassDate,'%d-%b-%Y'),',',t.StartTime,',',t.EndTime,',',t.ClassCode) ELSE NULL END) AS Saturday,
+                MAX(CASE WHEN WeekDayTable.WeekDay = 'Sunday' THEN CONCAT(t.ClassID,',',c.ClassName,',',concat(tr.Firstname,' ',tr.LastName),',',DATE_FORMAT(t.ClassDate,'%d-%b-%Y'),',',t.StartTime,',',t.EndTime,',',t.ClassCode) ELSE NULL END) AS Sunday
+                FROM Timetable t
+                LEFT JOIN (SELECT ClassID,StartTime, DATE_FORMAT(ClassDate, '%W') AS 'WeekDay' FROM Timetable) AS WeekDayTable
+                ON WeekDayTable.ClassID = t.ClassID
+                LEFT JOIN (SELECT b.classID, COUNT(b.MemberID) AS"TotalBooked" FROM Booking b
+                LEFT JOIN Timetable t
+                ON b.ClassID = t.ClassID
+                LEFT JOIN ClassType c
+                ON c.ClassCode = t.ClassCode
+                GROUP BY b.classID) AS RemainTable
+                ON RemainTable.classID = t.ClassID
+                LEFT JOIN Booking b
+                ON b.ClassID = t.ClassID
+                LEFT JOIN ClassType c
+                ON c.ClassCode = t.ClassCode
+                LEFT JOIN Trainer tr
+                ON tr.TrainerID = t.TrainerID
+                WHERE
+                b.MemberID=%s AND
+                b.BookingStatus='Current' and
+                WEEKOFYEAR(t.ClassDate) Like %s
+                GROUP BY t.StartTime) AS Table2
+                ON Timetable.StartTime = Table2.StartTime
+                ORDER BY Timetable.StartTime;""",(self.member_id,WeekNum))
+        dbcols=result['dbcols']
+        dbresult=result['result']
+        print('dbresult',dbresult)
+        #get data for database and process
+        listdb=[]
+        listlayer=[]
+        listclass=[]
+        for x in dbresult:
+            for y in x:
+                if type(y)!=str or y=='':
+                    listlayer.append(y)
+                else:
+                    for b in y.split(","):
+                        listclass.append(b)
+                    listlayer.append(listclass)
+                    listclass=[]
+            listdb.append(listlayer)
+            listclass=[]
+            listlayer=[]
+        return {
+            'dbcols': dbcols,
+            'result':listdb
+        }
+       
     def getMyBookedGroupSessionsIDs(self):
         result = db_manager.execute_query("SELECT ClassID FROM Booking WHERE MemberID = %s",(self.member_id,))
         result=result['result']
         myBookedGroupSessionsIDs=[ str(x[0]) for x in result]
         return myBookedGroupSessionsIDs
-        
-        
-        
-class Booking:
-    def __init__(self):
-       self.currentTime = datetime.now(pytz.timezone('Pacific/Auckland')).strftime("%Y-%m-%d %H:%M:%S")
-       
-    def getExpiredClasses(self,WeekNum):
-        expiredClassInfo = db_manager.execute_query("SELECT * FROM Timetable WHERE CONCAT(ClassDate, ' ', StartTime) < %s AND WEEKOFYEAR(ClassDate) = %s",(self.currentTime,WeekNum))['result']
-        ExpireClassID=[ str(x[0]) for x in expiredClassInfo]
-        return ExpireClassID
     
-    def getCorrespondingDates(self,WeekNum):
-        WeekNum=f"{WeekNum}%"
-        dbresultDate=db_manager.execute_query("""SELECT DISTINCT
-                'Date' AS StartTime,
-                DATE_FORMAT(MAX(CASE WHEN WeekDayTable.WeekDay = 'Monday' THEN WeekDayTable.ClassDate ELSE '' END), '%d-%b-%Y') AS Monday,
-                DATE_FORMAT(MAX(CASE WHEN WeekDayTable.WeekDay = 'Tuesday' THEN WeekDayTable.ClassDate ELSE '' END), '%d-%b-%Y') AS Tuesday,
-                DATE_FORMAT(MAX(CASE WHEN WeekDayTable.WeekDay = 'Wednesday' THEN WeekDayTable.ClassDate ELSE '' END), '%d-%b-%Y') AS Wednesday,
-                DATE_FORMAT(MAX(CASE WHEN WeekDayTable.WeekDay = 'Thursday' THEN WeekDayTable.ClassDate ELSE '' END), '%d-%b-%Y') AS Thursday,
-                DATE_FORMAT(MAX(CASE WHEN WeekDayTable.WeekDay = 'Friday' THEN WeekDayTable.ClassDate ELSE '' END), '%d-%b-%Y') AS Friday,
-                DATE_FORMAT(MAX(CASE WHEN WeekDayTable.WeekDay = 'Saturday' THEN WeekDayTable.ClassDate ELSE '' END), '%d-%b-%Y') AS Saturday,
-                DATE_FORMAT(MAX(CASE WHEN WeekDayTable.WeekDay = 'Sunday' THEN WeekDayTable.ClassDate ELSE '' END), '%d-%b-%Y') AS Sunday
-                FROM (SELECT ClassID,ClassDate, DATE_FORMAT(ClassDate, '%W') AS 'WeekDay' FROM Timetable) AS WeekDayTable
-                WHERE WEEKOFYEAR(ClassDate)=%s;
-            """,(WeekNum,))
-        return dbresultDate['result'][0]
+    def addBookingByID(self,classID):
+        db_manager.execute_query(
+                    "insert into Booking (MemberID,ClassID,IsPaid,BookingStatus) values(%s,%s,'0','Current')",
+                    (self.member_id, classID),
+                    commit=True,
+                )
     
+    def cancelBookingReleaseSpace(self,classID):
+        sql = """DELETE FROM Booking
+                WHERE MemberID = %s AND ClassID = %s """
+        db_manager.execute_query(sql, (self.member_id, classID), commit=True)
         
-    
-
         
+    # def cancelBookingNotReleaseSpace(self,classID):
+    #     sql = """update Booking set BookingStatus='Cancelled'
+    #             where ClassID=%s and MemberID=%s"""
+    #     db_manager.execute_query(sql, (classID, self.member_id), commit=True)  
